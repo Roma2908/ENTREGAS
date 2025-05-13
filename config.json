@@ -1,0 +1,8 @@
+{
+  "host": "sql10.freesqldatabase.com",
+  "user": "sql10777737",
+  "password": "H6jPXNQPMW",
+  "database": "sql10777737",
+  "port": 3306,
+  "output_folder": "Carpeta_ejemplo"
+}

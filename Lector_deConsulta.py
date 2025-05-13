@@ -1,36 +1,35 @@
 import mysql.connector
 import pandas as pd
 import os
+import json
 
-# ----------- CONFIGURACIÓN DE CONEXIÓN CON LA BASE DE DATOS -----------
+# ----------- CARGA DE CONFIGURACIÓN DESDE JSON -----------
+with open("config.json", "r") as f:
+    config_json = json.load(f)
+
 config = {
-    "host": "sql10.freesqldatabase.com",
-    "user": "sql10777737",
-    "password": "H6jPXNQPMW",
-    "database": "sql10777737",
-    "port": 3306
+    "host": config_json["host"],
+    "user": config_json["user"],
+    "password": config_json["password"],
+    "database": config_json["database"],
+    "port": config_json["port"]
 }
 
-# ----------- RUTA DE SALIDA -----------
-OUTPUT_DIR = "/home/roma/ENTREGAS/ENTREGAS/Carpeta_ejemplo"
-os.makedirs(OUTPUT_DIR, exist_ok=True)  # crea la carpeta si no existe
-output_file = os.path.join(OUTPUT_DIR, "resultado.parquet")
+# ----------- DEFINIR RUTA DINÁMICA -----------
+script_dir = os.path.dirname(os.path.abspath(__file__))  # ruta del script actual
+output_dir = os.path.join(script_dir, config_json["output_folder"])
+os.makedirs(output_dir, exist_ok=True)
+output_file = os.path.join(output_dir, "resultado.parquet")
 
-# ....... MANEJO DE ERRORES
+# ----------- MANEJO DE CONEXIÓN Y CONSULTA -----------
 try:
-    # Conectar a MySQL
-    # **config convierte cada par clave: valor en un argumento de la forma clave=valor.
     conn = mysql.connector.connect(**config)
     print("Conexión exitosa")
 
-    # Leer la consulta desde el archivo .sql
     with open("consulta.sql", "r") as file:
         query = file.read()
 
-    # Ejecutar la consulta y cargar en DataFrame
     df = pd.read_sql(query, conn)
-
-    # Guardamos en .parquet dentro de la carpeta deseada
     df.to_parquet(output_file)
     print(f"Datos guardados en '{output_file}'")
 
@@ -41,4 +40,3 @@ finally:
     if 'conn' in locals() and conn.is_connected():
         conn.close()
         print("Conexión cerrada.")
-
