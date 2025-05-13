@@ -1,42 +1,65 @@
-import mysql.connector
+from sqlalchemy import create_engine
 import pandas as pd
 import os
 import json
 
-# ----------- CARGA DE CONFIGURACIÓN DESDE JSON -----------
-with open("config.json", "r") as f:
-    config_json = json.load(f)
+class ConsultaDB:
+    def __init__(self, config_path="config.json"):
+        with open(config_path, "r") as f:
+            config_data = json.load(f)
 
-config = {
-    "host": config_json["host"],
-    "user": config_json["user"],
-    "password": config_json["password"],
-    "database": config_json["database"],
-    "port": config_json["port"]
-}
+        self.user = config_data["user"]
+        self.password = config_data["password"]
+        self.host = config_data["host"]
+        self.port = config_data["port"]
+        self.database = config_data["database"]
 
-# ----------- DEFINIR RUTA DINÁMICA -----------
-script_dir = os.path.dirname(os.path.abspath(__file__))  # ruta del script actual
-output_dir = os.path.join(script_dir, config_json["output_folder"])
-os.makedirs(output_dir, exist_ok=True)
-output_file = os.path.join(output_dir, "resultado.parquet")
+        # Creamos el engine con SQLAlchemy
+        self.engine = create_engine(
+            f"mysql+mysqlconnector://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+        )
 
-# ----------- MANEJO DE CONEXIÓN Y CONSULTA -----------
-try:
-    conn = mysql.connector.connect(**config)
-    print("Conexión exitosa")
+        self.default_output_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), config_data["output_folder"])
+        os.makedirs(self.default_output_folder, exist_ok=True)
 
-    with open("consulta.sql", "r") as file:
-        query = file.read()
+    def ejecutar_consulta(self, archivo_sql="consulta.sql"):
+        try:
+            with open(archivo_sql, "r") as file:
+                query = file.read()
 
-    df = pd.read_sql(query, conn)
-    df.to_parquet(output_file)
-    print(f"Datos guardados en '{output_file}'")
+            df = pd.read_sql(query, self.engine)
+            print("Consulta ejecutada correctamente")
+            return df
 
-except mysql.connector.Error as err:
-    print(f"Error al conectar: {err}")
+        except Exception as err:
+            print(f"Error al ejecutar la consulta: {err}")
+            return None
 
-finally:
-    if 'conn' in locals() and conn.is_connected():
-        conn.close()
-        print("Conexión cerrada.")
+    def exportar(self, df, nombre_archivo="resultado", formato="parquet", ruta=None):
+        if df is None:
+            print("DataFrame vacío, no se exporta.")
+            return
+
+        if ruta is None:
+            ruta = self.default_output_folder
+
+        os.makedirs(ruta, exist_ok=True)
+
+        output_path = os.path.join(ruta, f"{nombre_archivo}.{formato}")
+
+        try:
+            if formato == "parquet":
+                df.to_parquet(output_path)
+            elif formato == "csv":
+                df.to_csv(output_path, index=False)
+            elif formato == "json":
+                df.to_json(output_path, orient="records", lines=True)
+            elif formato in ["excel", "xlsx"]:
+                df.to_excel(output_path, index=False)
+            else:
+                raise ValueError(f"Formato '{formato}' no soportado.")
+
+            print(f"Archivo guardado en: {output_path}")
+
+        except Exception as e:
+            print(f"Error al exportar: {e}")
