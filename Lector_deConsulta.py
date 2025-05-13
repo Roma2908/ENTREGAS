@@ -12,7 +12,7 @@ config = {
 }
 
 # ----------- RUTA DE SALIDA -----------
-OUTPUT_DIR = "/content/Carpeta_ejemplo"
+OUTPUT_DIR = "/home/roma/ENTREGAS/ENTREGAS/Carpeta_ejemplo"
 os.makedirs(OUTPUT_DIR, exist_ok=True)  # crea la carpeta si no existe
 output_file = os.path.join(OUTPUT_DIR, "resultado.parquet")
 
