@@ -1,16 +1,8 @@
 {
-  "host"          : "sql10.freesqldatabase.com",
-  "user"          : "sql10779079",
-  "password"      : "NsFWv5i463",
-  "database"      : "sql10779079",
-  "port"          : 3306,
-
-  /* Carpeta donde se guardarán los archivos de salida */
-  "output_folder" : "Carpeta_ejemplo",
-
-  /* --- NUEVO ---
-     Si desean trabajar solo con archivos planos y no con MySQL,
-     establece esto como false.
-  */
-  "use_database"  : true
+  "host": "sql10.freesqldatabase.com",
+  "user": "sql10777737",
+  "password": "H6jPXNQPMW",
+  "database": "sql10777737",
+  "port": 3306,
+  "output_folder": "Carpeta_ejemplo"
 }
