@@ -1,65 +1,100 @@
-from sqlalchemy import create_engine
-import pandas as pd
 import os
 import json
+import pandas as pd
+from sqlalchemy import create_engine, text
 
 class ConsultaDB:
-    def __init__(self, config_path="config.json"):
-        with open(config_path, "r") as f:
-            config_data = json.load(f)
+    """
+    Clase de ayuda para:
+      • Conectarse a MySQL (opcional).
+      • Leer archivos planos (.csv | .parquet | .json | .xlsx).
+      • Ejecutar una consulta SQL (.sql) y devolver un DataFrame.
+      • Exportar los resultados en varios formatos.
+    """
 
-        self.user = config_data["user"]
-        self.password = config_data["password"]
-        self.host = config_data["host"]
-        self.port = config_data["port"]
-        self.database = config_data["database"]
+    def __init__(self, config_path: str | None = None):
+        base_dir = os.path.dirname(__file__)
+        cfg_file = config_path or os.path.join(base_dir, "config.json")
 
-        # Creamos el engine con SQLAlchemy
-        self.engine = create_engine(
-            f"mysql+mysqlconnector://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
-        )
+        with open(cfg_file, "r") as f:
+            cfg = json.load(f)
 
-        self.default_output_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), config_data["output_folder"])
-        os.makedirs(self.default_output_folder, exist_ok=True)
+        # Parámetros comunes
+        self.output_dir = os.path.join(base_dir, cfg.get("output_folder", "salidas"))
+        os.makedirs(self.output_dir, exist_ok=True)
 
-    def ejecutar_consulta(self, archivo_sql="consulta.sql"):
-        try:
-            with open(archivo_sql, "r") as file:
-                query = file.read()
+        # Conexión a base de datos (opcional)
+        self.use_db = bool(cfg.get("use_database", True))
+        if self.use_db:
+            self.engine = create_engine(
+                f"mysql+mysqlconnector://{cfg['user']}:{cfg['password']}"
+                f"@{cfg['host']}:{cfg['port']}/{cfg['database']}"
+            )
 
-            df = pd.read_sql(query, self.engine)
-            print("Consulta ejecutada correctamente")
-            return df
+    # Ejecutar consulta SQL
+    def ejecutar_consulta(self, query: str | None = None, sql_path: str | None = None):
+        if not self.use_db:
+            raise RuntimeError("La conexión a base de datos está desactivada en config.json")
 
-        except Exception as err:
-            print(f"Error al ejecutar la consulta: {err}")
-            return None
+        if query is None:
+            base_dir = os.path.dirname(__file__)
+            sql_file = sql_path or os.path.join(base_dir, "consulta.sql")
+            with open(sql_file, "r") as f:
+                query = f.read()
 
-    def exportar(self, df, nombre_archivo="resultado", formato="parquet", ruta=None):
-        if df is None:
-            print("DataFrame vacío, no se exporta.")
-            return
+        df = pd.read_sql(text(query), self.engine)
+        return df
 
-        if ruta is None:
-            ruta = self.default_output_folder
+    # Leer archivo plano
+    def cargar_archivo(self, ruta: str, formato: str | None = None):
+        """
+        Lee un archivo local o desde DBFS.
+        Ejemplo: df = lector.cargar_archivo("/dbfs/FileStore/mi_archivo.csv")
+        """
+        if formato is None:
+            formato = os.path.splitext(ruta)[1].lstrip(".").lower()
 
-        os.makedirs(ruta, exist_ok=True)
-
-        output_path = os.path.join(ruta, f"{nombre_archivo}.{formato}")
-
-        try:
-            if formato == "parquet":
-                df.to_parquet(output_path)
-            elif formato == "csv":
-                df.to_csv(output_path, index=False)
-            elif formato == "json":
-                df.to_json(output_path, orient="records", lines=True)
-            elif formato in ["excel", "xlsx"]:
-                df.to_excel(output_path, index=False)
-            else:
+        match formato:
+            case "csv":
+                return pd.read_csv(ruta)
+            case "parquet":
+                return pd.read_parquet(ruta)
+            case "json":
+                return pd.read_json(ruta, lines=True)
+            case "xlsx" | "excel":
+                return pd.read_excel(ruta)
+            case _:
                 raise ValueError(f"Formato '{formato}' no soportado.")
 
-            print(f"Archivo guardado en: {output_path}")
+    # Exportar DataFrame
+    def exportar(
+        self,
+        df: pd.DataFrame,
+        nombre_archivo: str = "resultado",
+        formato: str = "parquet",
+        destino: str | None = None,
+    ):
+        if df is None or df.empty:
+            print("El DataFrame está vacío, no se exporta.")
+            return
 
+        out_dir = destino or self.output_dir
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, f"{nombre_archivo}.{formato}")
+
+        try:
+            match formato:
+                case "parquet":
+                    df.to_parquet(path)
+                case "csv":
+                    df.to_csv(path, index=False)
+                case "json":
+                    df.to_json(path, orient="records", lines=True)
+                case "xlsx" | "excel":
+                    df.to_excel(path, index=False)
+                case _:
+                    raise ValueError(f"Formato '{formato}' no soportado.")
+
+            print(f"Archivo guardado en: {path}")
         except Exception as e:
-            print(f"Error al exportar: {e}")
+            print(f"Error al exportar → {e}")
