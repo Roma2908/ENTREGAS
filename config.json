@@ -9,7 +9,7 @@
   "output_folder" : "Carpeta_ejemplo",
 
   /* --- NUEVO ---
-     Si deseas trabajar solo con archivos planos y no con MySQL,
+     Si desean trabajar solo con archivos planos y no con MySQL,
      establece esto como false.
   */
   "use_database"  : true
